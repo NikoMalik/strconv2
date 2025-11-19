@@ -86,6 +86,48 @@ func BenchmarkStrconvParseInt64(b *testing.B) {
 	}
 }
 
+func TestDigits10(t *testing.T) {
+	tests := []struct {
+		value    uint64
+		expected uint32
+	}{
+		{0, 1},
+		{5, 1},
+		{9, 1},
+		{10, 2},
+		{99, 2},
+		{100, 3},
+		{999, 3},
+		{1000, 4},
+		{9999, 4},
+		{10000, 5},
+		{99999, 5},
+		{100000, 6},
+		{999999, 6},
+		{1_000_000, 7},
+		{9_999_999, 7},
+		{10_000_000, 8},
+		{99_999_999, 8},
+		{100_000_000, 9},
+		{999_999_999, 9},
+		{1_000_000_000, 10},
+		{9_999_999_999, 10},
+		{10_000_000_000, 11},
+		{99_999_999_999, 11},
+		{100_000_000_000, 12},
+		{999_999_999_999, 12},
+		{1_000_000_000_000, 13},
+		{math.MaxUint64, 20},
+	}
+
+	for _, tt := range tests {
+		got := Digits10(tt.value)
+		if got != tt.expected {
+			t.Errorf("Digits10(%d) = %d, want %d", tt.value, got, tt.expected)
+		}
+	}
+}
+
 func TestFormatUint16(t *testing.T) {
 	tests := []struct {
 		value    uint16

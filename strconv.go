@@ -31,13 +31,6 @@ var digits = [...]byte{
 	'9', '0', '9', '1', '9', '2', '9', '3', '9', '4', '9', '5', '9', '6', '9', '7', '9', '8', '9', '9',
 }
 
-func boolToUint32(b bool) uint32 {
-	if b {
-		return 1
-	}
-	return 0
-}
-
 func Digits10(v uint64) uint32 {
 	if v < 10 {
 		return 1
@@ -54,14 +47,14 @@ func Digits10(v uint64) uint32 {
 				if v < 10_000 {
 					return 4
 				}
-				return 5 + boolToUint32(v >= 100_000)
+				return 5 + uint32(Bool2int(v >= 100_000))
 			}
-			return 7 + boolToUint32(v >= 10_000_000)
+			return 7 + uint32(Bool2int(v >= 10_000_000))
 		}
 		if v < 10_000_000_000 {
-			return 9 + boolToUint32(v >= 1_000_000_000)
+			return 9 + uint32(Bool2int(v >= 1_000_000_000))
 		}
-		return 11 + boolToUint32(v >= 100_000_000_000)
+		return 11 + uint32(Bool2int(v >= 100_000_000_000))
 	}
 	return 12 + Digits10(v/1_000_000_000_000)
 }
