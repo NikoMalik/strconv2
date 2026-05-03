@@ -25,6 +25,14 @@ func BenchmarkStrconv2FormatUint64(b *testing.B) {
 	}
 }
 
+func BenchmarkStrconvAppendUint64(b *testing.B) {
+	var buf [SAFETY_BUF_SIZE]byte
+	for i := 0; i < b.N; i++ {
+		n := strconv.AppendUint(buf[:], 1234567890123456789, 10)
+		_sink = _string(n)
+	}
+}
+
 func BenchmarkStrconvFormatUint(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_sink = strconv.FormatUint(1234567890123456789, 10)

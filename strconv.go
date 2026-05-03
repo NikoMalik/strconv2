@@ -10,6 +10,12 @@ const SAFETY_BUF_SIZE = 32
 const FAST_BUF_SIZE = 24
 const UINT16_MAX = 5
 
+const cutoff = math.MaxUint64 / 10
+const cutlim = math.MaxUint64 % 10
+
+const cutoff_neg = uint64(math.MaxInt64) + 1
+const cutoff_no_neg = uint64(math.MaxInt64)
+
 var (
 	ErrOverflow         = errors.New("overflow")
 	ErrInvalidCharacter = errors.New("invalid character")
@@ -137,7 +143,7 @@ func ParseUint64(s string) (uint64, error) {
 		}
 
 		d := uint64(c - '0')
-		if v > (math.MaxUint64-d)/10 {
+		if v > cutoff || (v == cutoff && d > cutlim) {
 			return 0, ErrOverflow
 		}
 		v = v*10 + d
@@ -159,28 +165,31 @@ func ParseInt64(s string) (int64, error) {
 		}
 	}
 	var v uint64
+	var cutoff uint64
+	if negative {
+		cutoff = cutoff_neg
+	} else {
+		cutoff = cutoff_no_neg
+	}
+
 	for i := start; i < len(s); i++ {
 		c := s[i]
 		if c < '0' || c > '9' {
 			return 0, ErrInvalidCharacter
 		}
 		d := uint64(c - '0')
-		if v > (math.MaxInt64-uint64(d))/10 {
-			if negative && v == (math.MaxInt64+1-d)/10 {
-				v = v*10 + d
-				break
-			}
+		if v > cutoff/10 || (v == cutoff/10 && d > cutoff%10) {
 			return 0, ErrOverflow
 		}
 		v = v*10 + d
 	}
 	if negative {
-		if v > math.MaxInt64+1 {
-			return 0, ErrOverflow
+		if v == cutoff_neg {
+			return math.MinInt64, nil
 		}
 		return -int64(v), nil
 	}
-	if v > math.MaxInt64 {
+	if v > cutoff_no_neg {
 		return 0, ErrOverflow
 	}
 	return int64(v), nil
