@@ -54,7 +54,7 @@ func BenchmarkStrconvInt(b *testing.B) {
 }
 
 func BenchmarkStrconv2FormatUint16(b *testing.B) {
-	var buf [UINT16_MAX]byte
+	var buf [Uint16MaxDigits]byte
 	for i := 0; i < b.N; i++ {
 		n := FormatUint16(buf[:], 12345)
 		_sink = _string(buf[:n])
@@ -152,7 +152,7 @@ func TestFormatUint16(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		buf := make([]byte, UINT16_MAX)
+		buf := make([]byte, Uint16MaxDigits)
 		n := FormatUint16(buf, tt.value)
 		got := string(buf[:n])
 		if got != tt.expected {

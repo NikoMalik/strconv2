@@ -8,7 +8,7 @@ import (
 
 const SAFETY_BUF_SIZE = 32
 const FAST_BUF_SIZE = 24
-const UINT16_MAX = 5
+const Uint16MaxDigits = 5
 
 const cutoff = math.MaxUint64 / 10
 const cutlim = math.MaxUint64 % 10
@@ -16,12 +16,18 @@ const cutlim = math.MaxUint64 % 10
 const cutoff_neg = uint64(math.MaxInt64) + 1
 const cutoff_no_neg = uint64(math.MaxInt64)
 
+const (
+	cutoffNegDiv10 = cutoff_neg / 10
+	cutoffNegMod10 = cutoff_neg % 10
+	cutoffPosDiv10 = cutoff_no_neg / 10
+	cutoffPosMod10 = cutoff_no_neg % 10
+)
+
 var (
 	ErrOverflow         = errors.New("overflow")
 	ErrInvalidCharacter = errors.New("invalid character")
 	ErrInvalidString    = errors.New("invalid string")
 	ErrEmptyString      = errors.New("empty string")
-	ErrInvalidBoolStr   = errors.New("invalid parse bool argument")
 )
 
 var digits = [...]byte{
@@ -62,21 +68,29 @@ func Digits10(v uint64) uint32 {
 		}
 		return 11 + uint32(Bool2int(v >= 100_000_000_000))
 	}
-	return 12 + Digits10(v/1_000_000_000_000)
+	if v < 10_000_000_000_000_000 {
+		if v < 100_000_000_000_000 {
+			return 13 + uint32(Bool2int(v >= 10_000_000_000_000))
+		}
+		return 15 + uint32(Bool2int(v >= 1_000_000_000_000_000))
+	}
+	if v < 1_000_000_000_000_000_000 {
+		return 17 + uint32(Bool2int(v >= 100_000_000_000_000_000))
+	}
+	return 19 + uint32(Bool2int(v >= 10_000_000_000_000_000_000))
 }
 
 func FormatUint6410(dst []byte, value uint64) int {
 	dstlen := len(dst)
 
 	length := Digits10(value)
-	if int(length) >= dstlen {
+	if int(length) > dstlen {
 		if dstlen > 0 {
 			dst[0] = 0
 		}
 		return 0
 	}
 	next := length - 1
-	dst[next+1] = 0
 
 	for value >= 100 {
 		i := (value % 100) * 2
@@ -117,7 +131,6 @@ func FormatInt6410(dst []byte, svalue int64) int {
 		negative = 1
 		dst[0] = '-'
 		dst = dst[1:]
-		dstlen--
 	} else {
 		value = uint64(svalue)
 	}
@@ -130,18 +143,85 @@ func FormatInt6410(dst []byte, svalue int64) int {
 	return length + negative
 }
 
+// parse8DigitsSWAR parses exactly 8 ASCII digit bytes from s at the given offset
+func parse8DigitsSWAR(s string, offset int) (uint64, bool) {
+	p := unsafe.Add(unsafe.Pointer(unsafe.StringData(s)), offset)
+	loaded := *(*uint64)(p)
+
+	// Validate: upper nibble of every byte must be 0x3 (ASCII '0'-'9' are 0x30-0x39)
+	if (loaded & 0xF0F0F0F0F0F0F0F0) != 0x3030303030303030 {
+		return 0, false
+	}
+	// Validate: lower nibble of every byte must be < 10
+	low := loaded & 0x0F0F0F0F0F0F0F0F
+	if (low+0x0606060606060606)&0xF0F0F0F0F0F0F0F0 != 0 {
+		return 0, false
+	}
+
+	// Combine pairs of digits into 2-digit numbers in 16-bit slots
+	// On little-endian: byte 0 (most significant digit) is in the least significant byte
+	lo := low & 0x00FF00FF00FF00FF
+	hi := (low >> 8) & 0x00FF00FF00FF00FF
+	val := lo*10 + hi
+
+	// Combine pairs of 2-digit numbers into 4-digit numbers in 32-bit slots
+	lo = val & 0x0000FFFF0000FFFF
+	hi = (val >> 16) & 0x0000FFFF0000FFFF
+	val = lo*100 + hi
+
+	// Combine into final 8-digit number
+	lo = val & 0x00000000FFFFFFFF
+	hi = val >> 32
+	return lo*10000 + hi, true
+}
+
 func ParseUint64(s string) (uint64, error) {
-	var v uint64
-	if len(s) == 0 {
+	n := len(s)
+	if n == 0 {
 		return 0, ErrEmptyString
 	}
 
+	// Fast path: <= 19 digits can never overflow uint64
+	// (max 19-digit number = 9_999_999_999_999_999_999 < MaxUint64)
+	if n <= 19 {
+		return parseUint64Fast(s)
+	}
+
+	// Slow path: per-digit overflow checking (handles 20+ digits and leading zeros)
+	return parseUint64Slow(s)
+}
+
+func parseUint64Fast(s string) (uint64, error) {
+	var v uint64
+	i := 0
+	n := len(s)
+
+	for i+8 <= n {
+		chunk, ok := parse8DigitsSWAR(s, i)
+		if !ok {
+			return 0, ErrInvalidCharacter
+		}
+		v = v*100_000_000 + chunk
+		i += 8
+	}
+
+	for ; i < n; i++ {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return 0, ErrInvalidCharacter
+		}
+		v = v*10 + uint64(c-'0')
+	}
+	return v, nil
+}
+
+func parseUint64Slow(s string) (uint64, error) {
+	var v uint64
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c < '0' || c > '9' {
 			return 0, ErrInvalidCharacter
 		}
-
 		d := uint64(c - '0')
 		if v > cutoff || (v == cutoff && d > cutlim) {
 			return 0, ErrOverflow
@@ -164,26 +244,29 @@ func ParseInt64(s string) (int64, error) {
 			return 0, ErrInvalidString
 		}
 	}
+
+	digitStr := s[start:]
+	digitLen := len(digitStr)
+
 	var v uint64
-	var cutoff uint64
-	if negative {
-		cutoff = cutoff_neg
+	var err error
+
+	// Max absolute value for int64 is 19 digits (9223372036854775808).
+	// Any 19-digit number fits in uint64, so SWAR is safe.
+	if digitLen <= 19 {
+		v, err = parseUint64Fast(digitStr)
 	} else {
-		cutoff = cutoff_no_neg
+		// 20+ digits: only valid with leading zeros. Scalar handles overflow.
+		v, err = parseUint64Slow(digitStr)
+	}
+	if err != nil {
+		return 0, err
 	}
 
-	for i := start; i < len(s); i++ {
-		c := s[i]
-		if c < '0' || c > '9' {
-			return 0, ErrInvalidCharacter
-		}
-		d := uint64(c - '0')
-		if v > cutoff/10 || (v == cutoff/10 && d > cutoff%10) {
+	if negative {
+		if v > cutoff_neg {
 			return 0, ErrOverflow
 		}
-		v = v*10 + d
-	}
-	if negative {
 		if v == cutoff_neg {
 			return math.MinInt64, nil
 		}
