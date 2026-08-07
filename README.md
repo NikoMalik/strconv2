@@ -99,13 +99,20 @@ Read this before swapping in for `strconv`.
 
 `go version go1.26`, amd64, 12 threads. `go test -bench=. -benchmem`.
 
+Both sides are compared allocation-free: strconv2 writes into a caller buffer, and
+`strconv` is measured via its `Append*` forms into a reused `buf[:0]` (its
+`Format*` forms allocate a new string per call, shown separately).
+
 | Operation | strconv2 | strconv | allocs (strconv2 / strconv) |
 |-----------|----------|---------|-----------------------------|
-| Format uint64      | 24.8 ns | 49.1 ns (`FormatUint`) | 0 / 1 |
-| Format int64       | 27.8 ns | 49.9 ns (`FormatInt`)  | 0 / 1 |
-| Format uint16      | 10.1 ns | 23.9 ns (`FormatUint`) | 0 / 1 |
-| Parse uint64       | 17.7 ns | 51.3 ns (`ParseUint`)  | 0 / 0 |
-| Parse int64        | 19.3 ns | 55.1 ns (`ParseInt`)   | 0 / 0 |
+| uint64 -> bytes | 26.7 ns | 41.8 ns (`AppendUint`) | 0 / 0 |
+| int64 -> bytes  | 36.7 ns | 40.8 ns (`AppendInt`)  | 0 / 0 |
+| uint16 -> bytes | 10.7 ns | 23.9 ns (`AppendUint`) | 0 / 0 |
+| Parse uint64    | 17.7 ns | 51.3 ns (`ParseUint`)  | 0 / 0 |
+| Parse int64     | 19.3 ns | 55.1 ns (`ParseInt`)   | 0 / 0 |
+
+For reference, the allocating `strconv.FormatUint` / `FormatInt` run ~49 ns with
+1 alloc / 24 B per call.
 
 Numbers are indicative and vary by machine and input length.
 

@@ -9,6 +9,7 @@ import (
 
 var sink string
 var _sink string
+var sinkBytes []byte
 var sinkUint64 uint64
 var sinkInt64 int64
 var sinkErr error
@@ -26,10 +27,16 @@ func BenchmarkStrconv2FormatUint64(b *testing.B) {
 }
 
 func BenchmarkStrconvAppendUint64(b *testing.B) {
-	var buf [SAFETY_BUF_SIZE]byte
+	buf := make([]byte, 0, SAFETY_BUF_SIZE)
 	for i := 0; i < b.N; i++ {
-		n := strconv.AppendUint(buf[:], 1234567890123456789, 10)
-		_sink = _string(n)
+		sinkBytes = strconv.AppendUint(buf[:0], 1234567890123456789, 10)
+	}
+}
+
+func BenchmarkStrconvAppendInt64(b *testing.B) {
+	buf := make([]byte, 0, SAFETY_BUF_SIZE)
+	for i := 0; i < b.N; i++ {
+		sinkBytes = strconv.AppendInt(buf[:0], -1234567890123456789, 10)
 	}
 }
 
