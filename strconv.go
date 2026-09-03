@@ -80,6 +80,16 @@ func Digits10(v uint64) uint32 {
 	return 19 + uint32(Bool2int(v >= 10_000_000_000_000_000_000))
 }
 
+func Itoa(v int) string {
+	var buf [SAFETY_BUF_SIZE]byte
+	n := FormatInt6410(buf[:], int64(v))
+	return _string(buf[:n])
+}
+
+func _string(b []byte) string {
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
 func FormatUint6410(dst []byte, value uint64) int {
 	dstlen := len(dst)
 

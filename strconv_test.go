@@ -4,7 +4,6 @@ import (
 	"math"
 	"strconv"
 	"testing"
-	"unsafe"
 )
 
 var sink string
@@ -13,10 +12,6 @@ var sinkBytes []byte
 var sinkUint64 uint64
 var sinkInt64 int64
 var sinkErr error
-
-func _string(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b))
-}
 
 func BenchmarkStrconv2FormatUint64(b *testing.B) {
 	var buf [SAFETY_BUF_SIZE]byte
