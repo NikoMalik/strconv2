@@ -82,8 +82,7 @@ func Digits10(v uint64) uint32 {
 
 func Itoa(v int) string {
 	var buf [SAFETY_BUF_SIZE]byte
-	n := FormatInt6410(buf[:], int64(v))
-	return _string(buf[:n])
+	return _string(buf[:FormatInt6410(buf[:], int64(v))])
 }
 
 func _string(b []byte) string {
