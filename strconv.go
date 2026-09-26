@@ -43,6 +43,19 @@ var digits = [...]byte{
 	'9', '0', '9', '1', '9', '2', '9', '3', '9', '4', '9', '5', '9', '6', '9', '7', '9', '8', '9', '9',
 }
 
+var digits3 = makeDigits3()
+
+func makeDigits3() [1000]uint32 {
+	var t [1000]uint32
+	for i := 0; i < 1000; i++ {
+		a := byte('0' + i/100)
+		b := byte('0' + (i/10)%10)
+		c := byte('0' + i%10)
+		t[i] = uint32(a)<<16 | uint32(b)<<8 | uint32(c)
+	}
+	return t
+}
+
 func Digits10(v uint64) uint32 {
 	if v < 10 {
 		return 1
@@ -99,22 +112,32 @@ func FormatUint6410(dst []byte, value uint64) int {
 		}
 		return 0
 	}
-	next := length - 1
+	next := int(length)
 
-	for value >= 100 {
-		i := (value % 100) * 2
-		value /= 100
-		dst[next] = digits[i+1]
-		dst[next-1] = digits[i]
-		next -= 2
+	for value >= 1000 {
+		r := value % 1000
+		value /= 1000
+		next -= 3
+		t := digits3[r]
+		dst[next] = byte(t >> 16)
+		dst[next+1] = byte(t >> 8)
+		dst[next+2] = byte(t)
 	}
 
 	if value < 10 {
+		next--
 		dst[next] = '0' + byte(value)
-	} else {
+	} else if value < 100 {
+		next -= 2
 		i := value * 2
-		dst[next] = digits[i+1]
-		dst[next-1] = digits[i]
+		dst[next] = digits[i]
+		dst[next+1] = digits[i+1]
+	} else {
+		next -= 3
+		t := digits3[value]
+		dst[next] = byte(t >> 16)
+		dst[next+1] = byte(t >> 8)
+		dst[next+2] = byte(t)
 	}
 
 	return int(length)
@@ -244,14 +267,14 @@ func ParseInt64(s string) (int64, error) {
 	if len(s) == 0 {
 		return 0, ErrEmptyString
 	}
-	negative := false
+	first := s[0]
+	isNeg := first == '-'
 	start := 0
-	if s[0] == '-' {
-		negative = true
+	if isNeg || first == '+' {
 		start = 1
-		if len(s) == 1 {
-			return 0, ErrInvalidString
-		}
+	}
+	if start >= len(s) {
+		return 0, ErrInvalidString
 	}
 
 	digitStr := s[start:]
@@ -272,19 +295,11 @@ func ParseInt64(s string) (int64, error) {
 		return 0, err
 	}
 
-	if negative {
-		if v > cutoff_neg {
-			return 0, ErrOverflow
-		}
-		if v == cutoff_neg {
-			return math.MinInt64, nil
-		}
-		return -int64(v), nil
-	}
-	if v > cutoff_no_neg {
+	if v > cutoff_no_neg+uint64(Bool2int(isNeg)) {
 		return 0, ErrOverflow
 	}
-	return int64(v), nil
+	negMask := uint64(0) - uint64(Bool2int(isNeg))
+	return int64((v ^ negMask) - negMask), nil
 }
 
 func Bool2int(x bool) int {
