@@ -138,3 +138,45 @@ var (
 	rndSmall = randomSignStrs(1, 0, 999)
 	rndLarge = randomSignStrs(2, 0, 999999999999)
 )
+
+func formatUint3DigitNoFast(dst []byte, value uint64) int {
+	dstlen := len(dst)
+	length := Digits10(value)
+	if int(length) > dstlen {
+		if dstlen > 0 {
+			dst[0] = 0
+		}
+		return 0
+	}
+	next := int(length)
+	for value >= 1000 {
+		r := value % 1000
+		value /= 1000
+		next -= 3
+		t := digits3[r]
+		dst[next] = byte(t >> 16)
+		dst[next+1] = byte(t >> 8)
+		dst[next+2] = byte(t)
+	}
+	if value < 10 {
+		next--
+		dst[next] = '0' + byte(value)
+	} else if value < 100 {
+		next -= 2
+		i := value * 2
+		dst[next] = digits[i]
+		dst[next+1] = digits[i+1]
+	} else {
+		next -= 3
+		t := digits3[value]
+		dst[next] = byte(t >> 16)
+		dst[next+1] = byte(t >> 8)
+		dst[next+2] = byte(t)
+	}
+	return int(length)
+}
+
+func BenchmarkFmtNoFast_small(b *testing.B) { benchFormat(b, formatUint3DigitNoFast, vSmall) }
+func BenchmarkFmtFast_small(b *testing.B)   { benchFormat(b, FormatUint6410, vSmall) }
+func BenchmarkFmtNoFast_large(b *testing.B) { benchFormat(b, formatUint3DigitNoFast, vLarge) }
+func BenchmarkFmtFast_large(b *testing.B)   { benchFormat(b, FormatUint6410, vLarge) }

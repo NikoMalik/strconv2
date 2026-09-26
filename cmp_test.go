@@ -60,3 +60,16 @@ func TestParseInt64VsStd(t *testing.T) {
 		}
 	}
 }
+
+func TestItoaVsStd(t *testing.T) {
+	for x := -100000; x <= 100000; x++ {
+		if Itoa(x) != strconv.Itoa(x) {
+			t.Fatalf("Itoa(%d) = %q, want %q", x, Itoa(x), strconv.Itoa(x))
+		}
+	}
+	for _, x := range []int{0, 9, 10, 99, 100, -1, -99, -100, 1<<62, -(1<<62)} {
+		if Itoa(x) != strconv.Itoa(x) {
+			t.Fatalf("Itoa(%d) = %q, want %q", x, Itoa(x), strconv.Itoa(x))
+		}
+	}
+}

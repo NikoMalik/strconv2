@@ -10,6 +10,19 @@ const SAFETY_BUF_SIZE = 32
 const FAST_BUF_SIZE = 24
 const Uint16MaxDigits = 5
 
+const nSmalls = 100
+
+const smalls = "00010203040506070809" +
+	"10111213141516171819" +
+	"20212223242526272829" +
+	"30313233343536373839" +
+	"40414243444546474849" +
+	"50515253545556575859" +
+	"60616263646566676869" +
+	"70717273747576777879" +
+	"80818283848586878889" +
+	"90919293949596979899"
+
 const cutoff = math.MaxUint64 / 10
 const cutlim = math.MaxUint64 % 10
 
@@ -105,6 +118,26 @@ func _string(b []byte) string {
 func FormatUint6410(dst []byte, value uint64) int {
 	dstlen := len(dst)
 
+	if value < nSmalls {
+		if value < 10 {
+			if dstlen < 1 {
+				return 0
+			}
+			dst[0] = '0' + byte(value)
+			return 1
+		}
+		if dstlen < 2 {
+			if dstlen > 0 {
+				dst[0] = 0
+			}
+			return 0
+		}
+		i := value * 2
+		dst[0] = smalls[i]
+		dst[1] = smalls[i+1]
+		return 2
+	}
+
 	length := Digits10(value)
 	if int(length) > dstlen {
 		if dstlen > 0 {
@@ -145,6 +178,7 @@ func FormatUint6410(dst []byte, value uint64) int {
 
 func FormatInt6410(dst []byte, svalue int64) int {
 	dstlen := len(dst)
+
 	negative := 0
 	var value uint64
 
