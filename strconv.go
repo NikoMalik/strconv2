@@ -3,6 +3,7 @@ package strconv2
 import (
 	"errors"
 	"math"
+	"math/bits"
 	"unsafe"
 )
 
@@ -69,41 +70,33 @@ func makeDigits3() [1000]uint32 {
 	return t
 }
 
+type digits10Bound struct {
+	d   uint32
+	thr uint64
+}
+
+var digits10Tab = makeDigits10Tab()
+
+func makeDigits10Tab() [64]digits10Bound {
+	var t [64]digits10Bound
+	for lg := 0; lg < 64; lg++ {
+		v := uint64(1) << uint(lg)
+		d := uint32(1)
+		for x := v / 10; x > 0; x /= 10 {
+			d++
+		}
+		thr := uint64(1)
+		for k := uint32(0); k < d; k++ {
+			thr *= 10
+		}
+		t[lg] = digits10Bound{d: d, thr: thr}
+	}
+	return t
+}
+
 func Digits10(v uint64) uint32 {
-	if v < 10 {
-		return 1
-	}
-	if v < 100 {
-		return 2
-	}
-	if v < 1000 {
-		return 3
-	}
-	if v < 1_000_000_000_000 {
-		if v < 100_000_000 {
-			if v < 1_000_000 {
-				if v < 10_000 {
-					return 4
-				}
-				return 5 + uint32(Bool2int(v >= 100_000))
-			}
-			return 7 + uint32(Bool2int(v >= 10_000_000))
-		}
-		if v < 10_000_000_000 {
-			return 9 + uint32(Bool2int(v >= 1_000_000_000))
-		}
-		return 11 + uint32(Bool2int(v >= 100_000_000_000))
-	}
-	if v < 10_000_000_000_000_000 {
-		if v < 100_000_000_000_000 {
-			return 13 + uint32(Bool2int(v >= 10_000_000_000_000))
-		}
-		return 15 + uint32(Bool2int(v >= 1_000_000_000_000_000))
-	}
-	if v < 1_000_000_000_000_000_000 {
-		return 17 + uint32(Bool2int(v >= 100_000_000_000_000_000))
-	}
-	return 19 + uint32(Bool2int(v >= 10_000_000_000_000_000_000))
+	e := digits10Tab[bits.Len64(v|1)-1]
+	return e.d + uint32(Bool2int(v >= e.thr))
 }
 
 func Itoa(v int) string {
